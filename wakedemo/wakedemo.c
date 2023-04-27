@@ -65,7 +65,7 @@ struct {
 
 };
 
-char songIndx = 0;
+volatile char songIndx = 0;
 char songLength = 32;
 
 
@@ -90,15 +90,13 @@ switch_init()			/* setup switch */
 }
 
 int switches = 0;
-void
-switch_interrupt_handler()
-{
-  char p2val = switch_update_interrupt_sense();
-  switches = ~p2val & SWITCHES ;
+char expected =  4;
 
-  if ( p2val & SW1 ) {
-    buzzer_set_period(0);
-  }else{
+void switch_interrupt_handler() {
+  char p2val = switch_update_interrupt_sense();
+  switches = ~p2val & SWITCHES;
+
+  if (switches & SW1 || switches & SW2 || switches & SW3 || switches & SW4) {
     while( data[songIndx].nPos == 4 ){
       songIndx++;
     }
@@ -107,8 +105,31 @@ switch_interrupt_handler()
     if(songIndx >= songLength)
       songIndx = 0;
   }
-
+  if (!switches) {
+    buzzer_set_period(0);
+  }
 }
+
+
+// void
+// switch_interrupt_handler()
+// {
+//   char p2val = switch_update_interrupt_sense();
+//   switches = ~p2val & SWITCHES ;
+
+//   if ( p2val & SW1 ) {
+//     buzzer_set_period(0);
+//   }else{
+//     // while( data[songIndx].nPos == 4 ){
+//     //   songIndx++;
+//     // }
+//     buzzer_set_period(bp[ data[songIndx].song ]);
+//     songIndx++;
+//     if(songIndx >= songLength)
+//       songIndx = 0;
+//   }
+
+// }
 
 // axis zero for col, axis 1 for row
 unsigned char notePositions[5] = {
@@ -155,18 +176,14 @@ char goal = 4;
 char noteHitTarget[2] = {screenHeight - NoteWidth*2, screenHeight - 2 };
 
 void
-screen_update_ball()
-{
-
+screen_update_ball(){
   if( goal == mili300 ){
-    // ROW start pos and moving tracker , COL (0, 1 , 2 ,3 [4 = silent]) , SIZE of note); 
-    push( StartPos                     , data[drawNoteIndx].nPos        ,    data[drawNoteIndx].hold);
+    push( StartPos, data[drawNoteIndx].nPos , data[drawNoteIndx].hold);
     mili300 = 0;
     goal = htm [ data[drawNoteIndx].hold ] ;
     drawNoteIndx++ ;
     if( drawNoteIndx >= songLength )
       drawNoteIndx = 0;
-
   }
 
   //traversing queue
@@ -174,7 +191,13 @@ screen_update_ball()
     if(x >= max){
       x = 0; 
     }
-    
+        
+    // if( notesOnScreen[x][0] > noteHitTarget[0] && notesOnScreen[x][0] < noteHitTarget[1] ){
+    //   expected  =  notesOnScreen[x][1];
+    //   songIndx++;
+    //   if(songIndx >= songLength)
+    //     songIndx = 0;
+    // }
     draw_ball( notePositions[ notesOnScreen[x][1] ], notesOnScreen[x][0] - noteHeight[5], 5 ,BACKGROUND); /* erase */
     if ( notesOnScreen[x][0] >= screenHeight ){
       draw_ball( notePositions[ notesOnScreen[x][1] ], screenHeight - 20 , 1 ,BACKGROUND); /* erase at END */
@@ -202,7 +225,7 @@ void wdt_c_handler()
 {
   static int secCount = 0;
   secCount ++;
-  if (secCount >= 6) {		/* 10/sec      75 = .3 (300 milis), 25 = .1 seconds (100 milis), 250 = 1 seconds (1000 milis  ), 125 = .5 seconds (500 milis ), 5 = .02 seconds(20 milis)*/
+  if (secCount >= 5) {		/* 10/sec      75 = .3 (300 milis), 25 = .1 seconds (100 milis), 250 = 1 seconds (1000 milis  ), 125 = .5 seconds (500 milis ), 5 = .02 seconds(20 milis)*/
     secCount = 0;
     mili100 += 1;
     if(mili100 == 5){
